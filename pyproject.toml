@@ -1,0 +1,15 @@
+[project]
+name = "broadcast-server"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aioconsole>=0.8.1",
+    "asyncio>=3.4.3",
+    "fastapi[standard]>=0.115.12",
+    "prompt-toolkit>=3.0.51",
+    "redis>=6.2.0",
+    "typer[all]>=0.16.0",
+    "websockets>=15.0.1",
+]
