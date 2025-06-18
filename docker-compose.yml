@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  broadcast-server:
+    build: .
+    container_name: broadcast-server
+    ports:
+      - "8000:8000"
+    environment:
+      - BROADCAST_HOST=0.0.0.0
+      - BROADCAST_PORT=8000
+      - BROADCAST_REDIS_HOST=redis
+      - BROADCAST_REDIS_PORT=6379
+      - BROADCAST_LOG_LEVEL=INFO
+      - BROADCAST_MAX_FILE_SIZE=10485760  # 10MB
+      - BROADCAST_MAX_CONNECTIONS_PER_ROOM=100
+      - BROADCAST_MAX_CONNECTIONS_PER_USER=5
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  redis:
+    image: redis:7-alpine
+    container_name: broadcast-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+
+volumes:
+  uploads:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  default:
+    name: broadcast-network 

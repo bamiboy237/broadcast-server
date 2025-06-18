@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  broadcast-server:
+    # Use pre-built image in production
+    # image: your-registry/broadcast-server:latest
+    environment:
+      - BROADCAST_LOG_LEVEL=WARNING
+      - BROADCAST_DEBUG=false
+      - BROADCAST_MAX_FILE_SIZE=5242880  # 5MB for production
+    # Remove port mapping - use reverse proxy instead
+    ports: []
+    # Add resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+
+  redis:
+    # Remove port mapping for security
+    ports: []
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-your-secure-password}
+    command: >
+      redis-server 
+      --appendonly yes 
+      --maxmemory 512mb 
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD:-your-secure-password}
+    # Add resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M 

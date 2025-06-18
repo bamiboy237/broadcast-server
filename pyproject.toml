@@ -8,8 +8,11 @@ dependencies = [
     "aioconsole>=0.8.1",
     "asyncio>=3.4.3",
     "fastapi[standard]>=0.115.12",
+    "pydantic[email]>=2.0.0",
+    "pydantic-settings>=2.0.0",
     "prompt-toolkit>=3.0.51",
     "redis>=6.2.0",
+    "requests>=2.31.0",
     "typer[all]>=0.16.0",
     "websockets>=15.0.1",
 ]

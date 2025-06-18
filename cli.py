@@ -118,6 +118,11 @@ async def listen_to_server(websocket):
             elif msg_type == "private_message_error":
                 print(f"❌ [{timestamp}] Private message error: {content}")
             
+            elif msg_type == "system_info":
+                print(f"🔔 [{timestamp}] System Info: {content}")
+                if "code to join is:" in content:
+                    print(f"💡 [{timestamp}] Save this code to share with others!")
+            
             print()  
 
     except websockets.exceptions.ConnectionClosed:
@@ -171,6 +176,11 @@ async def send_to_server(websocket, session):
                     print("📩 Private message: /pm <recipient> <message>")
                     print("❓ Help: /help")
                     print()
+                    print("🔐 Room Code Info:")
+                    print("• Creating room: Connect without --code parameter")
+                    print("• Joining room: Use --code parameter with the room code")
+                    print("• Codes are 5-character alphanumeric (e.g., A3K9P)")
+                    print()
                     
                 else:
                     # Regular message - send as plain text
@@ -188,14 +198,18 @@ def connect(
     room_id: str = typer.Option("general", "--room", "-r", help="Room ID to join"),
     user_id: str = typer.Option("user", "--user", "-u", help="Your user ID"),
     host: str = typer.Option("127.0.0.1", "--host", help="Server host"),
-    port: int = typer.Option(8000, "--port", help="Server port")
+    port: int = typer.Option(8000, "--port", help="Server port"),
+    code: str = typer.Option(None, "--code", "-c", help="Room code (required for existing rooms)")
 ):
     """
     🔗 Connects to the broadcast server as a client with beautiful interface
     """
     
-    # Construct the WebSocket URI
-    uri = f"ws://{host}:{port}/ws/{room_id}/{user_id}"
+    # Construct the WebSocket URI with optional room code
+    if code:
+        uri = f"ws://{host}:{port}/ws/{room_id}/{user_id}?code={code}"
+    else:
+        uri = f"ws://{host}:{port}/ws/{room_id}/{user_id}"
     
     connect_banner = Panel.fit(
         Text("🔗 CLIENT CONNECTION", style="bold magenta", justify="center") + "\n" +
@@ -212,9 +226,18 @@ def connect(
     info_table = Table(box=ROUNDED, show_header=False, expand=False)
     info_table.add_column("Info", style="bold magenta")
     info_table.add_column("Value", style="bright_white")
-    info_table.add_row("🎯 Server", f"[bright_blue]{host}:{port}[/bright_blue]")
+    info_table.add_row("🌐 Server", f"[bright_blue]{host}:{port}[/bright_blue]")
     info_table.add_row("🏠 Room", f"[bright_green]{room_id}[/bright_green]")
     info_table.add_row("👤 User", f"[bright_yellow]{user_id}[/bright_yellow]")
+    
+    # Show different status based on whether code is provided
+    if code:
+        info_table.add_row("🔐 Mode", f"[bright_cyan]Joining existing room[/bright_cyan]")
+        info_table.add_row("🗝️  Code", f"[bright_red]{code}[/bright_red]")
+    else:
+        info_table.add_row("🔐 Mode", f"[bright_cyan]Creating new room[/bright_cyan]")
+        info_table.add_row("🗝️  Code", f"[dim]Will be generated[/dim]")
+    
     info_table.add_row("⏰ Time", f"[bright_cyan]{time.strftime('%Y-%m-%d %H:%M:%S')}[/bright_cyan]")
     
     info_panel = Panel(
@@ -257,6 +280,32 @@ def connect(
                     await asyncio.gather(listen_task, send_task)
                 finally:
                     await websocket.close()
+                    
+        except websockets.exceptions.ConnectionClosedError as e:
+            if e.code == 4001:
+                error_panel = Panel(
+                    "❌ [bold red]Room Code Authentication Failed![/bold red]\n" +
+                    f"🎯 Room: [dim]{room_id}[/dim]\n" +
+                    "🔐 [yellow]The room code is invalid or missing[/yellow]\n" +
+                    "💡 [dim]Ask the room creator for the correct code[/dim]\n" +
+                    "🔧 [dim]Try: python cli.py connect --room {room} --code {code}[/dim]",
+                    title="🚫 Authentication Error",
+                    border_style="red",
+                    box=ROUNDED
+                )
+                console.print(error_panel)
+                raise typer.Exit(1)
+            else:
+                error_panel = Panel(
+                    f"❌ [bold red]Connection closed unexpectedly![/bold red]\n" +
+                    f"🔧 Code: [dim]{e.code}[/dim]\n" +
+                    f"💬 Reason: [dim]{e.reason}[/dim]",
+                    title="🚫 Connection Error",
+                    border_style="red",
+                    box=ROUNDED
+                )
+                console.print(error_panel)
+                raise typer.Exit(1)
                     
         except (ConnectionRefusedError, websockets.exceptions.InvalidURI):
             error_panel = Panel(
